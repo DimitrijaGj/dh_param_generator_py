@@ -2,6 +2,7 @@
 
 import threading
 import time
+import json
 from flask import Flask, Response
 from cryptography.hazmat.primitives.asymmetric import dh
 from cryptography.hazmat.primitives import serialization
@@ -16,6 +17,7 @@ STOCK_SIZE = 100  # Maximum size of DH parameters stock
 REPLENISH_THRESHOLD = 20  # Threshold below which replenishment starts
 INITIAL_STOCK = 10  # Initial number of DH parameters to generate
 REPLENISH_CHUNK_SIZE = 5  # Number of parameters to generate per replenishment cycle
+STOCK_FILE = "dh_params_stock.json"  # Added stock file path
 
 # Shared storage for DH parameters
 # Using a thread-safe queue with a fixed maximum size
@@ -33,6 +35,38 @@ def generate_dh_param():
         format=serialization.ParameterFormat.PKCS3
     )
     return pem.decode('utf-8')  # Return as a decoded string
+
+def save_stock():
+    """Save the current stock to a JSON file"""
+    with lock:
+        # Convert queue to list for saving
+        params_list = []
+        temp_queue = Queue()
+        while not dh_params_stock.empty():
+            param = dh_params_stock.get()
+            params_list.append(param)
+            temp_queue.put(param)
+
+        # Restore the queue
+        while not temp_queue.empty():
+            dh_params_stock.put(temp_queue.get())
+
+        with open(STOCK_FILE, "w") as f:
+            for param in params_list:
+                json.dump(param, f)
+                f.write("\n")
+        print(f"[Storage] Saved {len(params_list)} parameters to {STOCK_FILE}")
+
+def load_stock():
+    """Load the stock from JSON file"""
+    try:
+        with open(STOCK_FILE, "r") as f:
+            params = [json.loads(line) for line in f if line.strip()]
+            for param in params[:STOCK_SIZE]:  # Respect STOCK_SIZE limit
+                dh_params_stock.put(param)
+        print(f"[Storage] Loaded {dh_params_stock.qsize()} parameters from {STOCK_FILE}")
+    except FileNotFoundError:
+        print(f"[Storage] {STOCK_FILE} not found. Starting with empty stock.")
 
 # Function to handle replenishment of the stock in a separate thread
 def replenishment_thread():
@@ -60,6 +94,9 @@ def replenishment_thread():
                 for param in new_params:
                     dh_params_stock.put(param)
 
+                # Save the updated stock
+                save_stock()
+
                 print(f"[Replenishment] Stock replenished. Current stock: {dh_params_stock.qsize()}")
 
                 # Stop replenishment if the stock is full
@@ -83,32 +120,52 @@ def get_dh_param():
         # Return a 503 status if the stock is empty
         return Response("Stock is empty, please retry shortly.", mimetype='text/plain', status=503)
 
-# Function to run the Flask server in a separate thread
-def flask_thread():
-    print("[Flask] Starting Flask server...")
-    try:
-        os.nice(-5)  # Attempt to set high priority for this thread (may require permissions)
-    except Exception as e:
-        print(f"[Flask] Failed to set high priority: {e}")
-    # Run the Flask application on port 5002
-    app.run(host='0.0.0.0', port=5005, debug=False, use_reloader=False)
+# Function to run the Flask server using WSGI
+def run_wsgi_server():
+    from gunicorn.app.base import BaseApplication
+
+    class FlaskApplication(BaseApplication):
+        def __init__(self, app, options=None):
+            self.options = options or {}
+            self.application = app
+            super().__init__()
+
+        def load_config(self):
+            config = {key: value for key, value in self.options.items()
+                      if key in self.cfg.settings and value is not None}
+            for key, value in config.items():
+                self.cfg.set(key.lower(), value)
+
+        def load(self):
+            return self.application
+
+    options = {
+        'bind': '0.0.0.0:5005',
+        'workers': 4,  # Number of worker processes
+    }
+    FlaskApplication(app, options).run()
 
 if __name__ == '__main__':
-    # Initialize the stock with a predefined number of DH parameters
-    print("[Main] Initializing stock...")
-    for _ in range(INITIAL_STOCK):
-        dh_params_stock.put(generate_dh_param())
-    print(f"[Main] Initial stock ready with {dh_params_stock.qsize()} DH parameters.")
+    # Load existing stock from file
+    print("[Main] Loading stock from file...")
+    load_stock()
+
+    # Generate initial stock only if needed
+    if dh_params_stock.empty():
+        print("[Main] Generating initial stock...")
+        for _ in range(INITIAL_STOCK):
+            dh_params_stock.put(generate_dh_param())
+        save_stock()
+
+    print(f"[Main] Stock ready with {dh_params_stock.qsize()} DH parameters.")
 
     # Start the replenishment thread
     replenishment_worker = threading.Thread(target=replenishment_thread, daemon=True, name="ReplenishmentThread")
     replenishment_worker.start()
 
-    # Start the Flask server thread
-    flask_worker = threading.Thread(target=flask_thread, daemon=True, name="FlaskThread")
-    flask_worker.start()
+    # Run the Flask server using WSGI
+    run_wsgi_server()
 
     # Keep the main thread alive to monitor the application
     while True:
         time.sleep(1)
-
