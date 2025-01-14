@@ -2,6 +2,7 @@
 
 ## Description
 By provisioning a new server there i a lot of time lost for generating Deffie-Hellmann Parametar (DH). In order to make this process faster here is an Python script that pregenerates stock of DH Params and served them with Flask application.
+In that way we can safe some time when we provision the new servers.
 
 ## Badges
 On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
