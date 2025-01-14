@@ -5,9 +5,8 @@ By provisioning a new server there i a lot of time lost for generating Deffie-He
 In that way we can safe some time when we provision the new servers.
 
 ## Badges
-![Alt text](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)
+![FLASK](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)
 
-<img src="{}" />
 ## Visuals
 Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
 
