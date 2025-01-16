@@ -3,6 +3,8 @@
 ## Description
 By provisioning a new server there i a lot of time lost for generating Deffie-Hellmann Parametar (DH). In order to make this process faster here is an Python script that pregenerates stock of DH Params and served them with Flask application.
 In that way we can safe some time when we provision the new servers.
+The python script is designed so that first one stock of 10 DH Params are created so the Flask server can start serving DH Params one by one. 
+
 
 ## Badges
 ![FLASK](https://img.shields.io/badge/Python-FFD43B?style=for-the-badge&logo=python&logoColor=blue)
