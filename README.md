@@ -1,9 +1,17 @@
 ## Deffie-Hellmann Parameters Python script generator
 
-## Description
-By provisioning a new server there i a lot of time lost for generating Deffie-Hellmann Parametar (DH). In order to make this process faster here is an Python script that pregenerates stock of DH Params and served them with Flask application.
-In that way we can safe some time when we provision the new servers.
-The python script is designed so that first one stock of 10 DH Params are created so the Flask server can start serving DH Params one by one. 
+## Overview
+When provisioning a new server, generating Diffie-Hellman (DH) parameters can be a time-consuming process. To streamline this task, we've designed a Python script that pre-generates a stockpile of DH parameters and serves them using a Flask application. This approach saves valuable time during server provisioning by ensuring DH parameters are readily available.
+
+### Key Features of the Script
+Initial Stockpile Creation:
+ - At startup, the script generates an initial stock of 10 DH parameters to ensure the Flask server can immediately start serving requests.
+Incremental Parameter Generation:
+ - After the initial stock, the script creates DH parameters in batches of 5 at a time. This ensures that the system doesn't get overloaded and that serving the DH parameters isn't interrupted.
+#### Stock Management:
+The script maintains a stock of up to 100 DH parameters at any given time. Parameters are generated only when the stock drops below this threshold.
+Flask Integration:
+The Flask application provides an HTTP API that delivers DH parameters one by one, ensuring the seamless provisioning of servers.
 
 
 ## Badges
@@ -16,22 +24,60 @@ The python script is designed so that first one stock of 10 DH Params are create
 ![image](https://img.shields.io/badge/Ansible-000000?style=for-the-badge&logo=ansible&logoColor=white)
 ![image](https://img.shields.io/badge/GIT-E44C30?style=for-the-badge&logo=git&logoColor=white)
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+## How the Script Works
+Storage Directory Setup:
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+ - The STORAGE_DIR is created if it doesn’t already exist, ensuring a dedicated space for storing DH parameter files.  
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+### DH Parameter Generation:
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+The script leverages the openssl command-line tool to generate DH parameters. Each parameter is stored as a .pem file in the storage directory.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+### Batch Processing:
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+DH parameters are created in batches of 5 (or fewer, if close to the stock limit). This prevents overloading the system while ensuring a steady supply.
+Stock Maintenance:
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+A background thread continuously monitors the stock of DH parameters. If the stock falls below the maximum threshold, the script generates additional batches.
 
+
+### Flask API:
+
+The /param endpoint serves a DH parameter file to the client. Once served, the parameter is removed from the storage directory to prevent reuse.
+
+### Benefits of This Approach
+
+Time-Saving: Server provisioning is faster since DH parameters are pre-generated and readily available.
+
+Efficiency: By generating parameters in batches, the script avoids overloading the system.
+
+Automation: Stock levels are maintained automatically, requiring no manual intervention.
+
+Scalability: The Flask API ensures that multiple servers can request DH parameters simultaneously.
+
+Conclusion
+This Python script provides a robust solution for managing Diffie-Hellman parameters during server provisioning. By pre-generating and serving parameters using Flask, we can significantly reduce the time and effort involved in setting up new servers.
+
+Feel free to customize the script to fit your specific requirements, such as changing the storage directory, adjusting batch sizes, or adding additional API endpoints.
+
+## FAQs
+
+- Why are Diffie-Hellman parameters necessary?
+
+  DH parameters are used to establish secure communication channels by enabling key exchange in cryptographic protocols like SSL/TLS.
+
+- What happens if the stock of DH parameters runs out?
+
+  If no parameters are available, the API will return a 503 error, prompting the client to retry later.
+
+- Can I adjust the stock limit and batch size?
+
+  Yes, the STOCK_LIMIT and BATCH_SIZE variables can be customized to suit your system's requirements.
+
+- Is the script compatible with all operating systems?
+
+  The script is compatible with any OS that supports Python, Flask, and OpenSSL.
+
+- How can I monitor the stock of DH parameters?
+
+  You can manually check the STORAGE_DIR or extend the script to include a monitoring endpoint.
